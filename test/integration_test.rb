@@ -190,6 +190,121 @@ class IntegrationTest < Test::Unit::TestCase
     end
   end
   
+  context "A model with no dimension columns" do
+    setup do
+      rebuild_model
+      @dummy      = Dummy.new
+      @file = File.new(File.join(FIXTURES_DIR, "5k.png"))
+    end
+    
+    should "not break on image uploads" do
+      assert_nothing_raised do
+        assert @dummy.avatar = @file
+        assert @dummy.save
+      end
+    end
+
+    should "return nil when asked for the width/height" do
+      @dummy.avatar = @file
+      @dummy.save
+      assert_nil @dummy.avatar.width
+      assert_nil @dummy.avatar.height
+    end
+  end
+
+  context "A model with dimension columns" do
+    setup do
+      rebuild_model :with_dimensions => true
+      @dummy     = Dummy.new
+      @image_file  = File.new(File.join(FIXTURES_DIR, "50x50.png"))
+      @image_file2 = File.new(File.join(FIXTURES_DIR, "5k.png"))
+      @text_file   = File.new(File.join(FIXTURES_DIR, "text.txt"))
+      @bad_file    = File.new(File.join(FIXTURES_DIR, "bad.png"))
+    end
+    
+    should "return nil when asked for the width/height of a non-image upload" do
+      @dummy.avatar = @text_file
+      @dummy.save
+      assert_nil @dummy.avatar.width
+      assert_nil @dummy.avatar.height
+    end
+    
+    should "assign dimensions for image uploads" do
+      assert @dummy.avatar = @image_file
+      assert @dummy.save
+      assert_equal 50, @dummy.avatar.width
+      assert_equal 50, @dummy.avatar.height
+    end
+    
+    should "not break when a bad image is uploaded" do
+      assert_nothing_raised do
+        @dummy.avatar = @bad_file
+        @dummy.save
+      end
+    end
+
+    should "return nil width/height when a bad image is uploaded" do
+      assert_nothing_raised do
+        @dummy.avatar = @bad_file
+        @dummy.save
+      end
+      assert_nil @dummy.avatar.width
+      assert_nil @dummy.avatar.height
+    end
+    
+    should "change dimensions if changing image upload" do
+      @dummy.avatar = @image_file
+      @dummy.save
+      old_size = `identify -format "%wx%h" #{@dummy.avatar.to_file(:original).path}`.chomp
+      assert_equal old_size, "#{@dummy.avatar.width}x#{@dummy.avatar.height}"
+      @dummy.avatar = @image_file2
+      @dummy.save
+      new_size = `identify -format "%wx%h" #{@dummy.avatar.to_file(:original).path}`.chomp
+      assert_equal new_size, "#{@dummy.avatar.width}x#{@dummy.avatar.height}"
+      assert_not_equal old_size, new_size  # sanity check
+    end
+
+    should "unassign dimensions if changing image upload to non-image" do
+      @dummy.avatar = @image_file
+      @dummy.save
+      @dummy.avatar = @text_file
+      @dummy.save
+      assert_nil @dummy.avatar.width
+      assert_nil @dummy.avatar.height
+    end    
+  end
+  
+  context "A model with dimension columns and custom sizes" do
+    setup do
+      rebuild_model :with_dimensions => true,
+                    :styles => { :large => "40x30>",
+                                 :medium => "20x20",
+                                 :thumb => ["5x5#", :gif] },
+                    :default_style => :medium
+            
+      @dummy     = Dummy.new
+      @file = File.new(File.join(FIXTURES_DIR, "50x50.png"))
+    end
+    
+    should "return the default style dimensions" do
+      assert @dummy.avatar = @file
+      assert @dummy.save
+      assert_equal 20, @dummy.avatar.width
+      assert_equal 20, @dummy.avatar.height
+    end
+    
+    should "return other style dimensions when asked" do
+      assert @dummy.avatar = @file
+      assert @dummy.save
+
+      assert_equal 5, @dummy.avatar.width(:thumb)
+      assert_equal 5, @dummy.avatar.height(:thumb)
+
+      assert_equal 30, @dummy.avatar.width(:large)
+      assert_equal 30, @dummy.avatar.height(:large)
+    end
+  end
+  
   context "A model with a filesystem attachment" do
     setup do
       rebuild_model :styles => { :large => "300x300>",
@@ -202,6 +317,7 @@ class IntegrationTest < Test::Unit::TestCase
       @dummy     = Dummy.new
       @file      = File.new(File.join(FIXTURES_DIR, "5k.png"), 'rb')
       @bad_file  = File.new(File.join(FIXTURES_DIR, "bad.png"), 'rb')
+      @text_file   = File.new(File.join(FIXTURES_DIR, "text.txt"), 'rb')
 
       assert @dummy.avatar = @file
       assert @dummy.valid?
@@ -275,6 +391,17 @@ class IntegrationTest < Test::Unit::TestCase
 
       @dummy.avatar = @bad_file
       assert ! @dummy.valid?
+    end
+    
+    should "properly determine #image?" do
+      @dummy.avatar = @file
+      assert_equal true, @dummy.avatar.image?
+
+      @dummy.avatar = @text_file
+      assert_equal false, @dummy.avatar.image?
+      
+      @dummy.avatar = "not a file"
+      assert_equal false, @dummy.avatar.image?
     end
 
     should "know the difference between good files, bad files, and not files when validating" do

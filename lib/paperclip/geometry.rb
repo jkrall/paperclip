@@ -94,6 +94,41 @@ module Paperclip
       [ scale_geometry, crop_geometry ]
     end
 
+    # Adapted from attachment_fu.
+    # Attempts to get new dimensions for the current geometry string given these old dimensions.
+    # This doesn't implement the aspect flag (!) or the area flag (@).  PDI
+    def new_dimensions_for orig_width, orig_height
+      new_width  = orig_width
+      new_height = orig_height
+
+      case self.modifier
+        when '#'
+          new_width  = self.width
+          new_height = self.height
+        when '%'
+          scale_x = self.width.zero?  ? 100 : self.width
+          scale_y = self.height.zero? ? self.width : self.height
+          new_width    = scale_x.to_f * (orig_width.to_f  / 100.0)
+          new_height   = scale_y.to_f * (orig_height.to_f / 100.0)
+        when '<', '>', nil
+          scale_factor =
+            if new_width.zero? || new_height.zero?
+              1.0
+            else
+              if self.width.nonzero? && self.height.nonzero?
+                [self.width.to_f / new_width.to_f, self.height.to_f / new_height.to_f].min
+              else
+                self.width.nonzero? ? (self.width.to_f / new_width.to_f) : (self.height.to_f / new_height.to_f)
+              end
+            end
+          new_width  = scale_factor * new_width.to_f
+          new_height = scale_factor * new_height.to_f
+          new_width  = orig_width  if self.modifier && new_width.send(self.modifier,  orig_width)
+          new_height = orig_height if self.modifier && new_height.send(self.modifier, orig_height)
+      end
+      [new_width, new_height].collect! { |v| [v.round, 1].max }
+    end
+    
     private
 
     def scaling dst, ratio

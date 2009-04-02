@@ -604,6 +604,8 @@ class AttachmentTest < Test::Unit::TestCase
                 @attachment.expects(:instance_write).with(:content_type, nil)
                 @attachment.expects(:instance_write).with(:file_size, nil)
                 @attachment.expects(:instance_write).with(:updated_at, nil)
+                @attachment.expects(:instance_write).with(:width, nil)
+                @attachment.expects(:instance_write).with(:height, nil)
                 @attachment.assign nil
                 @attachment.save
                 @existing_names.each{|f| assert ! File.exists?(f) }
@@ -678,7 +680,7 @@ class AttachmentTest < Test::Unit::TestCase
       @dummy.avatar = @file
       assert_equal @file.size, @dummy.avatar.size
     end
-
+    
     context "and avatar_updated_at column" do
       setup do
         ActiveRecord::Base.connection.add_column :dummies, :avatar_updated_at, :timestamp

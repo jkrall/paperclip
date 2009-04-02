@@ -160,6 +160,22 @@ NOTE: Post processing will not even *start* if the attachment is not valid
 according to the validations. Your callbacks (and processors) will only be
 called with valid attachments.
 
+==Optional Fields
+
+If the columns <attachment>_width and <attachment>_height are present in the database, they will be 
+filled with the width/height of the image, respectively. You can then query the width/height 
+of the image with:
+
+  @user.attachment.width
+  @user.attachment.height
+  
+  or
+  
+  @user.attachment.width(:style)
+  @user.attachment.height(:style)
+  
+If the columns are not present or the attachment is not an image, these will return nil.
+
 ==Contributing
 
 If you'd like to contribute a feature or bugfix: Thanks! To make sure your
