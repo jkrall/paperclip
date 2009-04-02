@@ -565,6 +565,21 @@ class AttachmentTest < Test::Unit::TestCase
               file.close
             end
 
+            context "with string style param" do
+              should "return the real url" do
+                file = @attachment.to_file(:small)
+                assert file
+                assert_match %r{^/system/avatars/#{@instance.id}/small/5k\.jpg}, @attachment.url('small')
+                file.close
+              end
+              should "return the real path" do
+                file = @attachment.to_file(:small)
+                assert file
+                assert_equal file.path, @attachment.path('small')
+                file.close
+              end
+            end
+
             should "commit the files to disk" do
               [:large, :medium, :small].each do |style|
                 io = @attachment.to_io(style)
@@ -616,6 +631,8 @@ class AttachmentTest < Test::Unit::TestCase
                 @attachment.expects(:instance_write).with(:content_type, nil)
                 @attachment.expects(:instance_write).with(:file_size, nil)
                 @attachment.expects(:instance_write).with(:updated_at, nil)
+                @attachment.expects(:instance_write).with(:width, nil)
+                @attachment.expects(:instance_write).with(:height, nil)
                 @attachment.clear
                 @attachment.save
                 @existing_names.each{|f| assert ! File.exists?(f) }
@@ -626,6 +643,8 @@ class AttachmentTest < Test::Unit::TestCase
                 @attachment.expects(:instance_write).with(:content_type, nil)
                 @attachment.expects(:instance_write).with(:file_size, nil)
                 @attachment.expects(:instance_write).with(:updated_at, nil)
+                @attachment.expects(:instance_write).with(:width, nil)
+                @attachment.expects(:instance_write).with(:height, nil)
                 @attachment.destroy
                 @existing_names.each{|f| assert ! File.exists?(f) }
               end

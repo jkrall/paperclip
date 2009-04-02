@@ -85,22 +85,6 @@ module Paperclip
       instance_write(:file_size,       uploaded_file.size.to_i)
       instance_write(:updated_at,      Time.now)
 
-      if image? and
-         @instance.class.column_names.include?("#{name}_width") and 
-         @instance.class.column_names.include?("#{name}_height")
-
-         begin
-           geometry = Paperclip::Geometry.from_file(@queued_for_write[:original])
-           instance_write(:width, geometry.width.to_i)
-           instance_write(:height, geometry.height.to_i)
-         rescue NotIdentifiedByImageMagickError => e
-           log("Couldn't get dimensions for #{name}: #{e}")
-         end
-      else
-        instance_write(:width, nil)
-        instance_write(:height, nil)
-      end
-
       @dirty = true
 
       post_process if valid?
@@ -120,6 +104,7 @@ module Paperclip
     # include_updated_timestamp to false if you want to stop the attachment
     # update time appended to the url
     def url style = default_style, include_updated_timestamp = true
+      style = style.nil? ? nil : style.to_sym      
       url = original_filename.nil? ? interpolate(@default_url, style) : interpolate(@url, style)
       include_updated_timestamp && updated_at ? [url, updated_at].compact.join(url.include?("?") ? "&" : "?") : url
     end
@@ -129,6 +114,7 @@ module Paperclip
     # on disk. If the file is stored in S3, the path is the "key" part of the
     # URL, and the :bucket option refers to the S3 bucket.
     def path style = nil #:nodoc:
+      style = style.nil? ? nil : style.to_sym
       original_filename.nil? ? nil : interpolate(@path, style)
     end
 
@@ -266,7 +252,6 @@ module Paperclip
         post_process
 
         old_original.close if old_original.respond_to?(:close)
-
         save
       else
         true
@@ -280,7 +265,7 @@ module Paperclip
 
     # Determines whether or not the attachment is an image based on the content_type
     def image?
-      !content_type.nil? and !!content_type.match(%r{\Aimage/})
+      !content_type.nil? and (!!content_type.match(%r{\Aimage/}) or (content_type=='application/pdf'))
     end
 
     # Writes the attachment-specific attribute on the instance. For example,
@@ -379,6 +364,7 @@ module Paperclip
 
     def post_process #:nodoc:
       return if @queued_for_write[:original].nil?
+      store_image_dimensions      
       solidify_style_definitions
       return if fire_events(:before)
       post_process_styles
@@ -406,6 +392,24 @@ module Paperclip
           (@errors[:processing] ||= []) << e.message if @whiny
         end
       end
+    end
+
+    def store_image_dimensions
+      if image? and
+         @instance.class.column_names.include?("#{name}_width") and 
+         @instance.class.column_names.include?("#{name}_height")
+
+         begin
+           geometry = Paperclip::Geometry.from_file(@queued_for_write[:original])
+           instance_write(:width, geometry.width.to_i)
+           instance_write(:height, geometry.height.to_i)
+         rescue NotIdentifiedByImageMagickError => e
+           log("Couldn't get dimensions for #{name}: #{e}")
+         end
+      else
+        instance_write(:width, nil)
+        instance_write(:height, nil)
+      end      
     end
 
     def interpolate pattern, style = default_style #:nodoc:
