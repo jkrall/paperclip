@@ -47,6 +47,7 @@ module Paperclip
       @dimensions        = {}
       @validation_errors = nil
       @dirty             = false
+      @use_background_processing = options[:use_background_processing]
 
       normalize_style_definition
       initialize_storage
@@ -146,6 +147,9 @@ module Paperclip
         flush_deletes
         flush_writes
         @dirty = false
+        if use_background_processing?
+          @options[:background_processing].call(@instance.class.to_s, @instance.id, @name)
+        end
         true
       else
         flush_errors
@@ -241,7 +245,8 @@ module Paperclip
     # in the paperclip:refresh rake task and that's it. It will regenerate all
     # thumbnails forcefully, by reobtaining the original file and going through
     # the post-process again.
-    def reprocess!
+    def reprocess! background_processing_override=nil
+      @use_background_processing = background_processing_override unless background_processing_override.nil?
       new_original = Tempfile.new("paperclip-reprocess")
       new_original.binmode
       if old_original = to_file(:original)
@@ -364,10 +369,10 @@ module Paperclip
 
     def post_process #:nodoc:
       return if @queued_for_write[:original].nil?
-      store_image_dimensions      
+      store_image_dimensions unless use_background_processing?
       solidify_style_definitions
       return if fire_events(:before)
-      post_process_styles
+      post_process_styles unless use_background_processing?
       return if fire_events(:after)
     end
 
@@ -452,6 +457,10 @@ module Paperclip
       @errors.each do |error, message|
         [message].flatten.each {|m| instance.errors.add(name, m) }
       end
+    end
+
+    def use_background_processing?
+      @use_background_processing.is_a?(Proc) ? @use_background_processing.call(self) : @use_background_processing
     end
 
   end
