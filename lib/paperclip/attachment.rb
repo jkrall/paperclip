@@ -5,7 +5,7 @@ module Paperclip
   # when the model saves, deletes when the model is destroyed, and processes
   # the file upon assignment.
   class Attachment
-    
+
     def self.default_options
       @default_options ||= {
         :url           => "/system/:attachment/:id/:style/:basename.:extension",
@@ -59,7 +59,7 @@ module Paperclip
     # errors, assigns attributes, processes the file, and runs validations. It
     # also queues up the previous file for deletion, to be flushed away on
     # #save of its host.  In addition to form uploads, you can also assign
-    # another Paperclip attachment: 
+    # another Paperclip attachment:
     #   new_user.avatar = old_user.avatar
     # If the file that is assigned is not valid, the processing (i.e.
     # thumbnailing, etc) will NOT be run.
@@ -93,7 +93,7 @@ module Paperclip
       @dirty = true
 
       post_process if valid?
- 
+
       # Reset the file size if the original file was reprocessed.
       instance_write(:file_size, @queued_for_write[:original].size.to_i)
     ensure
@@ -109,7 +109,7 @@ module Paperclip
     # include_updated_timestamp to false if you want to stop the attachment
     # update time appended to the url
     def url style = default_style, include_updated_timestamp = true
-      style = style.nil? ? nil : style.to_sym      
+      style = style.nil? ? nil : style.to_sym
       url = original_filename.nil? ? interpolate(@default_url, style) : interpolate(@url, style)
       include_updated_timestamp && updated_at ? [url, updated_at].compact.join(url.include?("?") ? "&" : "?") : url
     end
@@ -150,10 +150,10 @@ module Paperclip
       if valid?
         flush_deletes
         flush_writes
-        @dirty = false
-        if use_background_processing?
+        if use_background_processing? and dirty?
           @options[:background_processing].call(@instance.class.to_s, @instance.id, @name)
         end
+        @dirty = false
         true
       else
         flush_errors
@@ -195,23 +195,23 @@ module Paperclip
     def content_type
       instance_read(:content_type)
     end
-        
-    # Returns the last modified time of the file as originally assigned, and 
+
+    # Returns the last modified time of the file as originally assigned, and
     # lives in the <attachment>_updated_at attribute of the model.
     def updated_at
       time = instance_read(:updated_at)
       time && time.to_i
     end
 
-    # If <attachment> is an image and <attachment>_width attribute is present, returns the original width 
-    # of the image when no argument is specified or the calculated new width of the image when passed a 
+    # If <attachment> is an image and <attachment>_width attribute is present, returns the original width
+    # of the image when no argument is specified or the calculated new width of the image when passed a
     # valid style. Returns nil otherwise
     def width style = default_style
       dimensions(style)[0]
     end
 
-    # If <attachment> is an image and <attachment>_height attribute is present, returns the original width 
-    # of the image when no argument is specified or the calculated new height of the image when passed a 
+    # If <attachment> is an image and <attachment>_height attribute is present, returns the original width
+    # of the image when no argument is specified or the calculated new height of the image when passed a
     # valid style. Returns nil otherwise
     def height style = default_style
       dimensions(style)[1]
@@ -232,7 +232,7 @@ module Paperclip
         :basename     => lambda do |attachment,style|
                            attachment.original_filename.gsub(/#{File.extname(attachment.original_filename)}$/, "")
                          end,
-        :extension    => lambda do |attachment,style| 
+        :extension    => lambda do |attachment,style|
                            ((style = attachment.styles[style]) && style[:format]) ||
                            File.extname(attachment.original_filename).gsub(/^\.+/, "")
                          end,
@@ -266,7 +266,7 @@ module Paperclip
         true
       end
     end
-    
+
     # Returns true if a file has been assigned.
     def file?
       !original_filename.blank?
@@ -405,7 +405,7 @@ module Paperclip
 
     def store_image_dimensions
       if image? and
-         @instance.class.column_names.include?("#{name}_width") and 
+         @instance.class.column_names.include?("#{name}_width") and
          @instance.class.column_names.include?("#{name}_height")
 
          begin
@@ -418,7 +418,7 @@ module Paperclip
       else
         instance_write(:width, nil)
         instance_write(:height, nil)
-      end      
+      end
     end
 
     def interpolate pattern, style = default_style #:nodoc:
@@ -435,11 +435,11 @@ module Paperclip
       return [nil,nil] unless image?
       return @dimensions[style] unless @dimensions[style].nil?
       w, h = instance_read(:width), instance_read(:height)
-      
+
       if @styles[style].nil? or @styles[style][:geometry].nil?
         @dimensions[style] = [w,h]
       else
-        @dimensions[style] = Geometry.parse(@styles[style][:geometry]).new_dimensions_for(w, h)      
+        @dimensions[style] = Geometry.parse(@styles[style][:geometry]).new_dimensions_for(w, h)
       end
     end
 
