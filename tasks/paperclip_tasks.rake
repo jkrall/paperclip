@@ -42,7 +42,7 @@ namespace :paperclip do
     task :thumbnails => :environment do
       errors = []
       for_all_attachments do |instance, name|
-        result = instance.send(name).reprocess!
+        result = instance.send(name).reprocess!(false)
         errors << [instance.id, instance.errors] unless instance.errors.blank?
         result
       end
